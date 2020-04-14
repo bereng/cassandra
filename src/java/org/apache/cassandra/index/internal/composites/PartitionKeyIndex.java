@@ -26,6 +26,7 @@ import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.index.internal.CassandraIndex;
 import org.apache.cassandra.index.internal.IndexEntry;
 import org.apache.cassandra.schema.IndexMetadata;
+import org.apache.cassandra.utils.ByteBufferUtil;
 
 /**
  * Index on a PARTITION_KEY column definition.
@@ -72,6 +73,12 @@ public class PartitionKeyIndex extends CassandraIndex
         builder.add(partitionKey);
         for (int i = 0; i < prefix.size(); i++)
             builder.add(prefix.get(i));
+
+        // Pad with empty byte buffers statics as they still need to propagate the PK
+        if (prefix == Clustering.STATIC_CLUSTERING)
+            while (builder.remainingCount() != 0)
+                builder.add(ByteBufferUtil.EMPTY_BYTE_BUFFER);
+
         return builder;
     }
 

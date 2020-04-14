@@ -35,6 +35,7 @@ import org.apache.cassandra.db.transform.Transformation;
 import org.apache.cassandra.index.internal.CassandraIndex;
 import org.apache.cassandra.index.internal.CassandraIndexSearcher;
 import org.apache.cassandra.index.internal.IndexEntry;
+import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.btree.BTreeSet;
 import org.apache.cassandra.utils.concurrent.OpOrder;
 
@@ -231,15 +232,18 @@ public class CompositesSearcher extends CassandraIndexSearcher
                 while (entriesIdx < entries.size())
                 {
                     IndexEntry entry = entries.get(entriesIdx++);
+                    Clustering indexedEntryClustering = entry.indexedEntryClustering;
                     // The entries are in clustering order. So that the requested entry should be the
                     // next entry, the one at 'entriesIdx'. However, we can have stale entries, entries
                     // that have no corresponding row in the base table typically because of a range
                     // tombstone or partition level deletion. Delete such stale entries.
-                    int cmp = comparator.compare(entry.indexedEntryClustering, clustering);
+                    int cmp = comparator.compare(indexedEntryClustering, clustering);
                     assert cmp <= 0; // this would means entries are not in clustering order, which shouldn't happen
                     if (cmp == 0)
                         return entry;
-                    else
+                    // Do not render statics as stales
+                    else if (!indexedEntryClustering.get(indexedEntryClustering.size() - 1)
+                                                    .equals(ByteBufferUtil.EMPTY_BYTE_BUFFER))
                         staleEntries.add(entry);
                 }
                 // entries correspond to the rows we've queried, so we shouldn't have a row that has no corresponding entry.
