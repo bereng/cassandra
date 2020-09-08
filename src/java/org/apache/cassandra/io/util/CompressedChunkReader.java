@@ -110,6 +110,13 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
         }
 
         @Override
+        public void close()
+        {
+            super.close();
+            compressedHolder.remove();
+        }
+
+        @Override
         public void readChunk(long position, ByteBuffer uncompressed)
         {
             try
