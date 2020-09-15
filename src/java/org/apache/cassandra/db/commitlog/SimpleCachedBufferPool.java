@@ -107,6 +107,7 @@ public class SimpleCachedBufferPool
     public void shutdown()
     {
         bufferPool.clear();
+        reusableBufferHolder.remove();
     }
 
     public boolean atLimit()
