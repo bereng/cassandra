@@ -19,6 +19,7 @@
 package org.apache.cassandra.db.commitlog;
 
 import java.nio.ByteBuffer;
+import java.util.EnumMap;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -35,11 +36,19 @@ import org.apache.cassandra.io.util.FileUtils;
  */
 public class SimpleCachedBufferPool
 {
-    protected static final FastThreadLocal<ByteBuffer> reusableBufferHolder = new FastThreadLocal<ByteBuffer>()
+    private static final EnumMap<BufferType, FastThreadLocal<ByteBuffer>> reusableBBHolder = new EnumMap<>(BufferType.class);
+
+    static
     {
-        protected ByteBuffer initialValue()
+        for (BufferType bbType : BufferType.values())
         {
-            return ByteBuffer.allocate(0);
+            reusableBBHolder.put(bbType, new FastThreadLocal<ByteBuffer>()
+            {
+                protected ByteBuffer initialValue()
+                {
+                    return ByteBuffer.allocate(0);
+                }
+            });
         }
     };
 
@@ -79,12 +88,12 @@ public class SimpleCachedBufferPool
 
     public ByteBuffer getThreadLocalReusableBuffer(int size)
     {
-        ByteBuffer result = reusableBufferHolder.get();
-        if (result.capacity() < size || BufferType.typeOf(result) != preferredReusableBufferType)
+        ByteBuffer result = reusableBBHolder.get(preferredReusableBufferType).get();
+        if (result.capacity() < size)
         {
             FileUtils.clean(result);
             result = preferredReusableBufferType.allocate(size);
-            reusableBufferHolder.set(result);
+            reusableBBHolder.get(preferredReusableBufferType).set(result);
         }
         return result;
     }
@@ -107,7 +116,8 @@ public class SimpleCachedBufferPool
     public void shutdown()
     {
         bufferPool.clear();
-        reusableBufferHolder.remove();
+        for (FastThreadLocal<ByteBuffer> bbHolder : reusableBBHolder.values())
+            bbHolder.remove();
     }
 
     public boolean atLimit()
