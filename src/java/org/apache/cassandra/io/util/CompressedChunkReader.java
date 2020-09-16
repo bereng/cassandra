@@ -88,7 +88,8 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
 
     public static class Standard extends CompressedChunkReader
     {
-        // we read the raw compressed bytes into this buffer, then uncompressed them into the provided one.
+        // We read the raw compressed bytes into a buffer, then uncompressed them into the provided one.
+        // Notice we have 1 SimpleCachedBufferPool per BBType which wraps a FastThreadLocal BB
         private static final EnumMap<BufferType, SimpleCachedBufferPool> reusableCompressBBs = new EnumMap<>(BufferType.class);
         private final int compressSize = getCompressSize();
         private final BufferType compressBBType = metadata.compressor().preferredBufferType();
