@@ -20,6 +20,8 @@ package org.apache.cassandra.io.util;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.EnumMap;
+import java.util.Iterator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
@@ -87,21 +89,26 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
     public static class Standard extends CompressedChunkReader
     {
         // we read the raw compressed bytes into this buffer, then uncompressed them into the provided one.
-        private final SimpleCachedBufferPool reusableCompressBB;
+        private static final EnumMap<BufferType, SimpleCachedBufferPool> reusableCompressBBs = new EnumMap<>(BufferType.class);
         private final int compressSize = getCompressSize();
+        private final BufferType compressBBType = metadata.compressor().preferredBufferType();
 
         public Standard(ChannelProxy channel, CompressionMetadata metadata)
         {
             super(channel, metadata);
-            reusableCompressBB = new SimpleCachedBufferPool(0, getCompressSize());
-            reusableCompressBB.setPreferredReusableBufferType(metadata.compressor().preferredBufferType());
+            for (BufferType bbType : BufferType.values())
+            {
+                reusableCompressBBs.put(bbType, new SimpleCachedBufferPool(0, compressSize));
+                reusableCompressBBs.get(bbType).setPreferredReusableBufferType(bbType);
+            }
         }
 
         @Override
         public void close()
         {
             super.close();
-            reusableCompressBB.shutdown();
+            for (SimpleCachedBufferPool bbPool : reusableCompressBBs.values())
+                bbPool.shutdown();
         }
 
         @Override
@@ -120,7 +127,7 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
 
                 if (chunk.length < maxCompressedLength)
                 {
-                    ByteBuffer compressed = reusableCompressBB.getThreadLocalReusableBuffer(compressSize);
+                    ByteBuffer compressed = reusableCompressBBs.get(compressBBType).getThreadLocalReusableBuffer(compressSize);
 
                     assert compressed.capacity() >= length;
                     compressed.clear().limit(length);
@@ -162,7 +169,7 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
                         uncompressed.flip();
                         int checksum = (int) ChecksumType.CRC32.of(uncompressed);
 
-                        ByteBuffer scratch = reusableCompressBB.getThreadLocalReusableBuffer(compressSize);
+                        ByteBuffer scratch = reusableCompressBBs.get(compressBBType).getThreadLocalReusableBuffer(compressSize);
                         scratch.clear().limit(Integer.BYTES);
 
                         if (channel.read(scratch, chunk.offset + chunk.length) != Integer.BYTES
