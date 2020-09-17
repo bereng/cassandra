@@ -74,7 +74,7 @@ public class SimpleCachedBufferPool
     {
         this.maxBufferPoolSize = maxBufferPoolSize;
         this.bufferSize = bufferSize;
-        SimpleCachedBufferPool.reusableBB = reusableBBHolder.get(preferredReusableBufferType);
+        this.reusableBB = reusableBBHolder.get(preferredReusableBufferType);
     }
 
     public ByteBuffer createBuffer(BufferType bufferType)
