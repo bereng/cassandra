@@ -38,7 +38,7 @@ public class SimpleCachedBufferPool
 {
     private static final EnumMap<BufferType, FastThreadLocal<ByteBuffer>> reusableBBHolder = new EnumMap<>(BufferType.class);
     // Convenience variable holding a ref to the current resuableBB to avoid map lookups
-    private static FastThreadLocal<ByteBuffer> reusableBB;
+    private FastThreadLocal<ByteBuffer> reusableBB;
 
     static
     {
@@ -96,7 +96,6 @@ public class SimpleCachedBufferPool
         {
             FileUtils.clean(result);
             result = preferredReusableBufferType.allocate(size);
-            reusableBBHolder.get(preferredReusableBufferType).set(result);
             reusableBB.set(result);
         }
         return result;
