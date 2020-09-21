@@ -32,9 +32,11 @@ import org.slf4j.LoggerFactory;
 import net.nicoulaj.compilecommand.annotations.DontInline;
 import org.apache.cassandra.concurrent.NamedThreadFactory;
 import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.io.compress.BufferType;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.schema.Schema;
 import org.apache.cassandra.db.*;
+import org.apache.cassandra.db.commitlog.CommitLog.Configuration;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.*;
@@ -89,8 +91,24 @@ public abstract class AbstractCommitLogSegmentManager
     private final BooleanSupplier managerThreadWaitCondition = () -> (availableSegment == null && !atSegmentBufferLimit()) || shutdown;
     private final WaitQueue managerThreadWaitQueue = new WaitQueue();
 
-    private static final SimpleCachedBufferPool bufferPool =
-        new SimpleCachedBufferPool(DatabaseDescriptor.getCommitLogMaxCompressionBuffersInPool(), DatabaseDescriptor.getCommitLogSegmentSize());
+    private static final SimpleCachedBufferPool bufferPool;
+
+    static
+    {
+        Configuration config = new Configuration(DatabaseDescriptor.getCommitLogCompression(),
+                                                 DatabaseDescriptor.getEncryptionContext());
+
+        BufferType BBType = null;
+        if (config.useEncryption())
+            // Keep reusable buffers on-heap regardless of compression preference so we avoid copy off/on repeatedly during decryption
+            // Also: we want to keep the compression buffers on-heap as we need those bytes for encryption,
+            // and we want to avoid copying from off-heap (compression buffer) to on-heap encryption APIs
+            BBType = BufferType.ON_HEAP;
+        else if (config.useCompression())
+            BBType = config.getCompressor().preferredBufferType();
+
+        bufferPool = new SimpleCachedBufferPool(DatabaseDescriptor.getCommitLogMaxCompressionBuffersInPool(), DatabaseDescriptor.getCommitLogSegmentSize(), BBType);
+    }
 
     AbstractCommitLogSegmentManager(final CommitLog commitLog, String storageDirectory)
     {

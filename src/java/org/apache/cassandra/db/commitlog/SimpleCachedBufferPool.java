@@ -36,9 +36,10 @@ import org.apache.cassandra.io.util.FileUtils;
  */
 public class SimpleCachedBufferPool
 {
+    public static final BufferType DEFAULT_PREFERRED_BB_TYPE = BufferType.ON_HEAP;
     private static final EnumMap<BufferType, FastThreadLocal<ByteBuffer>> reusableBBHolder = new EnumMap<>(BufferType.class);
     // Convenience variable holding a ref to the current resuableBB to avoid map lookups
-    private FastThreadLocal<ByteBuffer> reusableBB;
+    private final FastThreadLocal<ByteBuffer> reusableBB;
 
     static
     {
@@ -68,16 +69,17 @@ public class SimpleCachedBufferPool
      */
     private final int bufferSize;
 
-    private BufferType preferredReusableBufferType = BufferType.ON_HEAP;
+    private final BufferType preferredReusableBufferType;
 
-    public SimpleCachedBufferPool(int maxBufferPoolSize, int bufferSize)
+    public SimpleCachedBufferPool(int maxBufferPoolSize, int bufferSize, BufferType preferredReusableBufferType)
     {
         this.maxBufferPoolSize = maxBufferPoolSize;
         this.bufferSize = bufferSize;
+        this.preferredReusableBufferType = preferredReusableBufferType;
         this.reusableBB = reusableBBHolder.get(preferredReusableBufferType);
     }
 
-    public ByteBuffer createBuffer(BufferType bufferType)
+    public ByteBuffer createBuffer()
     {
         usedBuffers.incrementAndGet();
         ByteBuffer buf = bufferPool.poll();
@@ -86,7 +88,7 @@ public class SimpleCachedBufferPool
             buf.clear();
             return buf;
         }
-        return bufferType.allocate(bufferSize);
+        return preferredReusableBufferType.allocate(bufferSize);
     }
 
     public ByteBuffer getThreadLocalReusableBuffer(int size)
@@ -99,12 +101,6 @@ public class SimpleCachedBufferPool
             reusableBB.set(result);
         }
         return result;
-    }
-
-    public void setPreferredReusableBufferType(BufferType type)
-    {
-        preferredReusableBufferType = type;
-        reusableBB = reusableBBHolder.get(preferredReusableBufferType);
     }
 
     public void releaseBuffer(ByteBuffer buffer)
@@ -120,9 +116,6 @@ public class SimpleCachedBufferPool
     public void shutdown()
     {
         bufferPool.clear();
-        for (FastThreadLocal<ByteBuffer> bbHolder : reusableBBHolder.values())
-            bbHolder.remove();
-        reusableBB.remove();
     }
 
     public boolean atLimit()

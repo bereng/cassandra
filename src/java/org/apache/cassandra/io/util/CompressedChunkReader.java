@@ -93,8 +93,7 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
         public Standard(ChannelProxy channel, CompressionMetadata metadata)
         {
             super(channel, metadata);
-            reusableCompressBB = new SimpleCachedBufferPool(0, getCompressSize());
-            reusableCompressBB.setPreferredReusableBufferType(metadata.compressor().preferredBufferType());
+            reusableCompressBB = new SimpleCachedBufferPool(0, compressSize, metadata.compressor().preferredBufferType());
         }
 
         @Override
