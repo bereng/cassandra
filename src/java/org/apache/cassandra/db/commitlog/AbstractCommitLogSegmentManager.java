@@ -36,7 +36,6 @@ import org.apache.cassandra.io.compress.BufferType;
 import org.apache.cassandra.io.util.FileUtils;
 import org.apache.cassandra.schema.Schema;
 import org.apache.cassandra.db.*;
-import org.apache.cassandra.db.commitlog.CommitLog.Configuration;
 import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.*;
@@ -91,24 +90,7 @@ public abstract class AbstractCommitLogSegmentManager
     private final BooleanSupplier managerThreadWaitCondition = () -> (availableSegment == null && !atSegmentBufferLimit()) || shutdown;
     private final WaitQueue managerThreadWaitQueue = new WaitQueue();
 
-    private static final SimpleCachedBufferPool bufferPool;
-
-    static
-    {
-        Configuration config = new Configuration(DatabaseDescriptor.getCommitLogCompression(),
-                                                 DatabaseDescriptor.getEncryptionContext());
-
-        BufferType BBType = null;
-        if (config.useEncryption())
-            // Keep reusable buffers on-heap regardless of compression preference so we avoid copy off/on repeatedly during decryption
-            // Also: we want to keep the compression buffers on-heap as we need those bytes for encryption,
-            // and we want to avoid copying from off-heap (compression buffer) to on-heap encryption APIs
-            BBType = BufferType.ON_HEAP;
-        else if (config.useCompression())
-            BBType = config.getCompressor().preferredBufferType();
-
-        bufferPool = new SimpleCachedBufferPool(DatabaseDescriptor.getCommitLogMaxCompressionBuffersInPool(), DatabaseDescriptor.getCommitLogSegmentSize(), BBType);
-    }
+    private volatile SimpleCachedBufferPool bufferPool;
 
     AbstractCommitLogSegmentManager(final CommitLog commitLog, String storageDirectory)
     {
@@ -166,7 +148,22 @@ public abstract class AbstractCommitLogSegmentManager
             }
         };
 
+        BufferType BBType = SimpleCachedBufferPool.DEFAULT_PREFERRED_BB_TYPE;
+        if (commitLog.configuration.useEncryption())
+            // Keep reusable buffers on-heap regardless of compression preference so we avoid copy off/on repeatedly during decryption
+            // Also: we want to keep the compression buffers on-heap as we need those bytes for encryption,
+            // and we want to avoid copying from off-heap (compression buffer) to on-heap encryption APIs
+            BBType = BufferType.ON_HEAP;
+        else if (commitLog.configuration.useCompression())
+            BBType = commitLog.configuration.getCompressor().preferredBufferType();
+
+        synchronized(this)
+        {
+            this.bufferPool = new SimpleCachedBufferPool(DatabaseDescriptor.getCommitLogMaxCompressionBuffersInPool(), DatabaseDescriptor.getCommitLogSegmentSize(), BBType);
+        }
+
         shutdown = false;
+
         managerThread = NamedThreadFactory.createThread(runnable, "COMMIT-LOG-ALLOCATOR");
         managerThread.start();
 
@@ -475,7 +472,7 @@ public abstract class AbstractCommitLogSegmentManager
     /**
      * Initiates the shutdown process for the management thread.
      */
-    public void shutdown()
+    public synchronized void shutdown()
     {
         assert !shutdown;
         shutdown = true;
@@ -484,6 +481,8 @@ public abstract class AbstractCommitLogSegmentManager
         // Do not block as another thread may claim the segment (this can happen during unit test initialization).
         discardAvailableSegment();
         wakeManager();
+        if (bufferPool != null)
+            bufferPool.shutdown();
     }
 
     private void discardAvailableSegment()
