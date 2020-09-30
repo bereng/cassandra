@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.cassandra.db.commitlog;
+package org.apache.cassandra.io.util;
 
 import java.nio.ByteBuffer;
 import java.util.EnumMap;
@@ -26,8 +26,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import org.apache.cassandra.io.compress.BufferType;
-import org.apache.cassandra.io.util.FileUtils;
-
 import org.jctools.queues.MpmcArrayQueue;
 
 /**
