@@ -100,7 +100,7 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
         public void close()
         {
             super.close();
-            reusableCompressBB.shutdown();
+            reusableCompressBB.emptyBufferPool();
         }
 
         @Override

@@ -148,19 +148,15 @@ public abstract class AbstractCommitLogSegmentManager
             }
         };
 
-        BufferType BBType = SimpleCachedBufferPool.DEFAULT_PREFERRED_BB_TYPE;
-        if (commitLog.configuration.useEncryption())
-            // Keep reusable buffers on-heap regardless of compression preference so we avoid copy off/on repeatedly during decryption
-            // Also: we want to keep the compression buffers on-heap as we need those bytes for encryption,
-            // and we want to avoid copying from off-heap (compression buffer) to on-heap encryption APIs
-            BBType = BufferType.ON_HEAP;
-        else if (commitLog.configuration.useCompression())
-            BBType = commitLog.configuration.getCompressor().preferredBufferType();
+        // For encrypted segments we want to keep the compression buffers on-heap as we need those bytes for encryption,
+        // and we want to avoid copying from off-heap (compression buffer) to on-heap encryption APIs
+        BufferType bufferType = commitLog.configuration.useEncryption() || !commitLog.configuration.useCompression()
+                              ? BufferType.ON_HEAP
+                              : commitLog.configuration.getCompressor().preferredBufferType();
 
-        synchronized(this)
-        {
-            this.bufferPool = new SimpleCachedBufferPool(DatabaseDescriptor.getCommitLogMaxCompressionBuffersInPool(), DatabaseDescriptor.getCommitLogSegmentSize(), BBType);
-        }
+        this.bufferPool = new SimpleCachedBufferPool(DatabaseDescriptor.getCommitLogMaxCompressionBuffersInPool(),
+                                                     DatabaseDescriptor.getCommitLogSegmentSize(),
+                                                     bufferType);
 
         shutdown = false;
 
@@ -472,7 +468,7 @@ public abstract class AbstractCommitLogSegmentManager
     /**
      * Initiates the shutdown process for the management thread.
      */
-    public synchronized void shutdown()
+    public void shutdown()
     {
         assert !shutdown;
         shutdown = true;
@@ -481,8 +477,6 @@ public abstract class AbstractCommitLogSegmentManager
         // Do not block as another thread may claim the segment (this can happen during unit test initialization).
         discardAvailableSegment();
         wakeManager();
-        if (bufferPool != null)
-            bufferPool.shutdown();
     }
 
     private void discardAvailableSegment()
@@ -511,7 +505,7 @@ public abstract class AbstractCommitLogSegmentManager
         for (CommitLogSegment segment : activeSegments)
             segment.close();
 
-        bufferPool.shutdown();
+        bufferPool.emptyBufferPool();
     }
 
     /**
