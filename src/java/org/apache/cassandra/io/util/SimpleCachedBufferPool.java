@@ -19,11 +19,8 @@
 package org.apache.cassandra.io.util;
 
 import java.nio.ByteBuffer;
-import java.util.EnumMap;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import io.netty.util.concurrent.FastThreadLocal;
 
 import org.apache.cassandra.io.compress.BufferType;
 import org.jctools.queues.MpmcArrayQueue;
@@ -36,23 +33,7 @@ import org.jctools.queues.MpmcArrayQueue;
  */
 public class SimpleCachedBufferPool
 {
-    private static final EnumMap<BufferType, FastThreadLocal<ByteBuffer>> reusableBBHolder = new EnumMap<>(BufferType.class);
-    // Convenience variable holding a ref to the current resuableBB to avoid map lookups
-    private final FastThreadLocal<ByteBuffer> reusableBB;
-
-    static
-    {
-        for (BufferType bbType : BufferType.values())
-        {
-            reusableBBHolder.put(bbType, new FastThreadLocal<ByteBuffer>()
-            {
-                protected ByteBuffer initialValue()
-                {
-                    return ByteBuffer.allocate(0);
-                }
-            });
-        }
-    };
+    private final ThreadLocalByteBufferHolder bufferHolder;
 
     private final Queue<ByteBuffer> bufferPool;
 
@@ -81,7 +62,7 @@ public class SimpleCachedBufferPool
         this.maxBufferPoolSize = maxBufferPoolSize;
         this.bufferSize = bufferSize;
         this.preferredReusableBufferType = preferredReusableBufferType;
-        this.reusableBB = reusableBBHolder.get(preferredReusableBufferType);
+        this.bufferHolder = new ThreadLocalByteBufferHolder(preferredReusableBufferType);
     }
 
     public ByteBuffer createBuffer()
@@ -98,14 +79,7 @@ public class SimpleCachedBufferPool
 
     public ByteBuffer getThreadLocalReusableBuffer(int size)
     {
-        ByteBuffer result = reusableBB.get();
-        if (result.capacity() < size)
-        {
-            FileUtils.clean(result);
-            result = preferredReusableBufferType.allocate(size);
-            reusableBB.set(result);
-        }
-        return result;
+        return bufferHolder.getBuffer(size);
     }
 
     public void releaseBuffer(ByteBuffer buffer)
@@ -116,7 +90,7 @@ public class SimpleCachedBufferPool
         usedBuffers.decrementAndGet();
 
         // We use a bounded queue. By consequence if we have reached the maximum size for the buffer pool
-        // offer will return false and we know that we can simply get ride of the buffer.
+        // offer will return false and we know that we can simply get rid of the buffer.
         if (!bufferPool.offer(buffer))
             FileUtils.clean(buffer);
     }

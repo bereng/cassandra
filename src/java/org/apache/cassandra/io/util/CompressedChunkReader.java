@@ -86,20 +86,12 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
     public static class Standard extends CompressedChunkReader
     {
         // we read the raw compressed bytes into this buffer, then uncompressed them into the provided one.
-        private final SimpleCachedBufferPool reusableCompressBB;
-        private final int compressSize = getCompressSize();
+        private final ThreadLocalByteBufferHolder bufferHolder;
 
         public Standard(ChannelProxy channel, CompressionMetadata metadata)
         {
             super(channel, metadata);
-            reusableCompressBB = new SimpleCachedBufferPool(0, compressSize, metadata.compressor().preferredBufferType());
-        }
-
-        @Override
-        public void close()
-        {
-            super.close();
-            reusableCompressBB.emptyBufferPool();
+            bufferHolder = new ThreadLocalByteBufferHolder(metadata.compressor().preferredBufferType());
         }
 
         @Override
@@ -118,10 +110,8 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
 
                 if (chunk.length < maxCompressedLength)
                 {
-                    ByteBuffer compressed = reusableCompressBB.getThreadLocalReusableBuffer(compressSize);
+                    ByteBuffer compressed = bufferHolder.getBuffer(length);
 
-                    assert compressed.capacity() >= length;
-                    compressed.clear().limit(length);
                     if (channel.read(compressed, chunk.offset) != length)
                         throw new CorruptBlockException(channel.filePath(), chunk);
 
@@ -160,8 +150,7 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
                         uncompressed.flip();
                         int checksum = (int) ChecksumType.CRC32.of(uncompressed);
 
-                        ByteBuffer scratch = reusableCompressBB.getThreadLocalReusableBuffer(compressSize);
-                        scratch.clear().limit(Integer.BYTES);
+                        ByteBuffer scratch = bufferHolder.getBuffer(Integer.BYTES);
 
                         if (channel.read(scratch, chunk.offset + chunk.length) != Integer.BYTES
                                 || scratch.getInt(0) != checksum)
@@ -176,15 +165,6 @@ public abstract class CompressedChunkReader extends AbstractReaderFileProxy impl
                 uncompressed.position(0).limit(0);
                 throw new CorruptSSTableException(e, channel.filePath());
             }
-        }
-
-        private int getCompressSize()
-        {
-            int compressedLength = Math.min(maxCompressedLength,
-                                            metadata.compressor().initialCompressedBufferLength(metadata.chunkLength()));
-
-            int checksumLength = Integer.BYTES;
-            return compressedLength + checksumLength;
         }
     }
 
