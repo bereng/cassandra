@@ -62,8 +62,8 @@
     <property name="test.microbench.src" value="${test.dir}/microbench"/>
     <property name="test.distributed.src" value="${test.dir}/distributed"/>
     <property name="test.compression.algo" value="LZ4"/>
-    <property name="test.driver.connection_timeout_ms" value="5000"/>
-    <property name="test.driver.read_timeout_ms" value="12000"/>
+    <property name="test.driver.connection_timeout_ms" value="7500"/>
+    <property name="test.driver.read_timeout_ms" value="15600"/>
     <property name="dist.dir" value="${build.dir}/dist"/>
     <property name="tmp.dir" value="${java.io.tmpdir}"/>
 
@@ -93,9 +93,9 @@
     <property name="maven-repository-url" value="https://repository.apache.org/content/repositories/snapshots"/>
     <property name="maven-repository-id" value="apache.snapshots.https"/>
 
-    <property name="test.timeout" value="240000" />
-    <property name="test.memory.timeout" value="480000" />
-    <property name="test.long.timeout" value="600000" />
+    <property name="test.timeout" value="300000" />
+    <property name="test.memory.timeout" value="600000" />
+    <property name="test.long.timeout" value="780000" />
     <property name="test.burn.timeout" value="60000000" />
     <property name="test.distributed.timeout" value="900000" />
 
