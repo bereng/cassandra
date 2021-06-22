@@ -753,11 +753,11 @@ public class ConnectionTest
                 CountDownLatch done = new CountDownLatch(1);
                 unsafeSetHandler(Verb._TEST_1, () -> msg -> done.countDown());
                 outbound.enqueue(Message.out(Verb._TEST_1, noPayload));
-                Assert.assertTrue(done.await(10, SECONDS));
-                Assert.assertEquals(done.getCount(), 0);
+                Assert.assertTrue(done.await(20, SECONDS));
+                Assert.assertEquals(0, done.getCount());
 
                 // Simulate disconnect
-                inbound.close().get(10, SECONDS);
+                inbound.close().get(20, SECONDS);
                 MessagingService.instance().removeInbound(endpoint);
                 inbound = new InboundSockets(settings.inbound.apply(new InboundConnectionSettings()));
                 inbound.open().sync();
@@ -766,13 +766,13 @@ public class ConnectionTest
                 unsafeSetHandler(Verb._TEST_1, () -> msg -> latch2.countDown());
                 outbound.enqueue(Message.out(Verb._TEST_1, noPayload));
 
-                latch2.await(10, SECONDS);
-                Assert.assertEquals(latch2.getCount(), 0);
+                Assert.assertTrue(latch2.await(20, SECONDS));
+                Assert.assertEquals(0, latch2.getCount());
             }
             finally
             {
-                inbound.close().get(10, SECONDS);
-                outbound.close(false).get(10, SECONDS);
+                inbound.close().get(20, SECONDS);
+                outbound.close(false).get(20, SECONDS);
             }
         });
     }
