@@ -766,7 +766,7 @@ public class ConnectionTest
                 unsafeSetHandler(Verb._TEST_1, () -> msg -> latch2.countDown());
                 outbound.enqueue(Message.out(Verb._TEST_1, noPayload));
 
-                Assert.assertTrue(latch2.await(20, SECONDS));
+                Assert.assertTrue(latch2.await(60, SECONDS));
                 Assert.assertEquals(0, latch2.getCount());
             }
             finally
