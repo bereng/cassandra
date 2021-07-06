@@ -55,6 +55,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
+import io.netty.util.concurrent.Future;
 import org.apache.cassandra.config.Config;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.EncryptionOptions;
@@ -99,6 +100,11 @@ public class ConnectionTest
     private void unsafeSetHandler(Verb verb, Supplier<? extends IVerbHandler<?>> supplier) throws Throwable
     {
         handlers.putIfAbsent(verb, verb.unsafeSetHandler(supplier));
+    }
+    
+    private void unsafeForceHandler(Verb verb, Supplier<? extends IVerbHandler<?>> supplier) throws Throwable
+    {
+        handlers.put(verb, verb.unsafeSetHandler(supplier));
     }
 
     private void unsafeSetExpiration(Verb verb, ToLongFunction<TimeUnit> expiration) throws Throwable
@@ -760,13 +766,17 @@ public class ConnectionTest
                 inbound.close().get(20, SECONDS);
                 MessagingService.instance().removeInbound(endpoint);
                 inbound = new InboundSockets(settings.inbound.apply(new InboundConnectionSettings()));
-                inbound.open().sync();
+                Future<Void> openFuture = inbound.open();
+                openFuture.sync();
+                Assert.assertFalse(openFuture.isCancelled());
+                Assert.assertTrue(openFuture.isDone());
+                Assert.assertTrue(openFuture.isSuccess());
 
                 CountDownLatch latch2 = new CountDownLatch(1);
-                unsafeSetHandler(Verb._TEST_1, () -> msg -> latch2.countDown());
+                unsafeForceHandler(Verb._TEST_1, () -> msg -> latch2.countDown());
                 outbound.enqueue(Message.out(Verb._TEST_1, noPayload));
 
-                Assert.assertTrue(latch2.await(60, SECONDS));
+                Assert.assertTrue(latch2.await(20, SECONDS));
                 Assert.assertEquals(0, latch2.getCount());
             }
             finally
