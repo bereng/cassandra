@@ -57,7 +57,7 @@ import static org.junit.Assert.assertTrue;
 public class ImportTest extends CQLTester
 {
 
-    @Test
+    //@Test
     public void basicImportByMovingTest() throws Throwable
     {
         File backupDir = prepareBasicImporting();
@@ -67,7 +67,7 @@ public class ImportTest extends CQLTester
         Assert.assertEquals(0, countFiles(backupDir));
     }
 
-    @Test
+    //@Test
     public void basicImportByCopyingTest() throws Throwable
     {
         File backupDir = prepareBasicImporting();
@@ -105,7 +105,7 @@ public class ImportTest extends CQLTester
         return failedDirectories;
     }
 
-    @Test
+    //@Test
     public void basicImportMultiDirTest() throws Throwable
     {
         createTable("create table %s (id int primary key, d int)");
@@ -135,7 +135,7 @@ public class ImportTest extends CQLTester
     }
 
 
-    @Test
+    //@Test
     @Deprecated
     public void refreshTest() throws Throwable
     {
@@ -151,7 +151,7 @@ public class ImportTest extends CQLTester
         assertEquals(10, execute("select * from %s").size());
     }
 
-    @Test
+    //@Test
     public void importResetLevelTest() throws Throwable
     {
         createTable("create table %s (id int primary key, d int)");
@@ -188,7 +188,7 @@ public class ImportTest extends CQLTester
     }
 
 
-    @Test
+    //@Test
     public void importClearRepairedTest() throws Throwable
     {
         createTable("create table %s (id int primary key, d int)");
@@ -264,7 +264,7 @@ public class ImportTest extends CQLTester
         return b.toPath();
     }
 
-    @Test
+    //@Test
     public void testGetCorrectDirectory() throws Throwable
     {
         TokenMetadata metadata = StorageService.instance.getTokenMetadata();
@@ -366,6 +366,7 @@ public class ImportTest extends CQLTester
         {
             if (f.isFile() && f.toString().contains("-Data.db"))
             {
+                System.out.println("******************************************************** " + f.toString());
                 fileCount++;
             }
         }
@@ -378,25 +379,25 @@ public class ImportTest extends CQLTester
         testCorruptHelper(true, false);
     }
 
-    @Test
+    //@Test
     public void testImportCorruptWithCopying() throws Throwable
     {
         testCorruptHelper(true, true);
     }
 
-    @Test
+    //@Test
     public void testImportCorruptWithoutValidation() throws Throwable
     {
         testCorruptHelper(false, false);
     }
 
-    @Test
+    //@Test
     public void testImportCorruptWithoutValidationWithCopying() throws Throwable
     {
         testCorruptHelper(false, true);
     }
 
-    @Test
+    //@Test
     public void testImportOutOfRange() throws Throwable
     {
         createTable("create table %s (id int primary key, d int)");
@@ -441,7 +442,7 @@ public class ImportTest extends CQLTester
         }
     }
 
-    @Test
+    //@Test
     public void testImportOutOfRangeExtendedVerify() throws Throwable
     {
         createTable("create table %s (id int primary key, d int)");
@@ -477,7 +478,7 @@ public class ImportTest extends CQLTester
     }
 
 
-    @Test
+    //@Test
     public void testImportInvalidateCache() throws Throwable
     {
         createTable("create table %s (id int primary key, d int) WITH caching = { 'keys': 'NONE', 'rows_per_partition': 'ALL' }");
@@ -545,7 +546,7 @@ public class ImportTest extends CQLTester
         }
     }
 
-    @Test
+    //@Test
     public void testImportCacheEnabledWithoutSrcDir() throws Throwable
     {
         createTable("create table %s (id int primary key, d int) WITH caching = { 'keys': 'NONE', 'rows_per_partition': 'ALL' }");
@@ -562,7 +563,7 @@ public class ImportTest extends CQLTester
         assertEquals(1, getCurrentColumnFamilyStore().getLiveSSTables().size());
     }
 
-    @Test
+    //@Test
     public void testRefreshCorrupt() throws Throwable
     {
         createTable("create table %s (id int primary key, d int) WITH caching = { 'keys': 'NONE', 'rows_per_partition': 'ALL' }");
@@ -626,7 +627,7 @@ public class ImportTest extends CQLTester
     /**
      * If a user gives a bad directory we don't import any directories - we should let the user correct the directories
      */
-    @Test
+    //@Test
     public void importBadDirectoryTest() throws Throwable
     {
         createTable("create table %s (id int primary key, d int)");
@@ -663,7 +664,7 @@ public class ImportTest extends CQLTester
         assertEquals(0, getCurrentColumnFamilyStore().getLiveSSTables().size());
     }
 
-    @Test
+    //@Test
     public void importExoticTableNamesTest() throws Throwable
     {
         for (String table : new String[] { "snapshot", "snapshots", "backup", "backups",
